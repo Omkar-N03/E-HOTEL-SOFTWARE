@@ -5,7 +5,7 @@
     "customer/**/*.php": { "runtime": "vercel-php@0.7.0" },
     "kitchen/**/*.php": { "runtime": "vercel-php@0.7.0" },
     "SuperAdmin/**/*.php": { "runtime": "vercel-php@0.7.0" },
-    "*.php": { "runtime": "vercel-php@0.7.0" }
+    "index.php": { "runtime": "vercel-php@0.7.0" }
   },
   "routes": [
     {
