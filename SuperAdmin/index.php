@@ -58,7 +58,6 @@ try {
             min-height: 100vh;
         }
 
-        /* Sidebar Styling */
         .sidebar {
             width: 260px;
             background: var(--dark);
@@ -121,7 +120,6 @@ try {
             margin-left: auto;
         }
 
-        /* Main Content */
         .main-content {
             margin-left: 260px;
             flex: 1;
@@ -132,7 +130,6 @@ try {
         header h1 { font-size: 1.8rem; font-weight: 700; color: var(--dark); }
         header p { color: var(--slate); margin-top: 4px; }
 
-        /* Stats Grid */
         .stats-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -156,7 +153,6 @@ try {
         .stat-card h3 { font-size: 0.9rem; color: var(--slate); text-transform: uppercase; letter-spacing: 0.5px; }
         .stat-card .number { font-size: 2rem; font-weight: 700; margin-top: 10px; color: var(--dark); }
 
-        /* Table Styling */
         .table-section {
             background: var(--white);
             border-radius: var(--radius);

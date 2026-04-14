@@ -7,7 +7,6 @@ protect_page(['super_admin']);
 $message = "";
 $messageType = "";
 
-// Handle Actions (Approve, Suspend, Delete)
 if (isset($_GET['action']) && isset($_GET['id'])) {
     $hotel_id = (int)$_GET['id'];
     $action = $_GET['action'];
@@ -26,7 +25,6 @@ if (isset($_GET['action']) && isset($_GET['id'])) {
     exit();
 }
 
-// Handle New Hotel Creation
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['create_hotel'])) {
     $name = strip_tags($_POST['hotel_name']);
     $email = filter_var($_POST['email'], FILTER_SANITIZE_EMAIL);
@@ -81,50 +79,35 @@ $hotels = $stmt->fetchAll();
         body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: var(--bg); color: var(--dark); }
 
         .admin-container { display: flex; min-height: 100vh; }
-
-        /* Sidebar - Consistent with Dashboard */
         .sidebar { width: 260px; background: var(--dark); color: white; padding: 1.5rem; position: fixed; height: 100vh; z-index: 100; }
         .logo h2 { font-size: 1.25rem; font-weight: 800; margin-bottom: 2rem; display: flex; align-items: center; gap: 10px; }
         .sidebar ul { list-style: none; }
         .sidebar a { text-decoration: none; color: #94a3b8; padding: 0.8rem 1rem; display: flex; align-items: center; gap: 12px; border-radius: var(--radius); transition: 0.3s; font-weight: 500; }
         .sidebar li.active a, .sidebar a:hover { background: rgba(255,255,255,0.1); color: #fff; }
-
         .main-content { margin-left: 260px; flex: 1; padding: 2.5rem; }
-
         header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
         header h1 { font-size: 1.8rem; font-weight: 700; }
-
-        /* Buttons */
         .btn-add { background: var(--primary); color: white; border: none; padding: 12px 20px; border-radius: 10px; cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 8px; transition: 0.3s; }
         .btn-add:hover { transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(79, 70, 229, 0.4); }
-
-        /* Table Area */
         .table-section { background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow); padding: 1.5rem; }
         table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
         th { background: var(--bg); padding: 1rem; color: var(--slate); font-size: 0.8rem; text-transform: uppercase; text-align: left; }
         td { padding: 1.2rem 1rem; border-bottom: 1px solid #f1f5f9; font-size: 0.95rem; }
-
-        /* Badges */
         .status-badge { padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; }
         .status-badge.active { background: #dcfce7; color: #166534; }
         .status-badge.pending { background: #fef3c7; color: #92400e; }
         .status-badge.suspended { background: #fee2e2; color: #991b1b; }
-
-        /* Action Icons */
         .action-buttons { display: flex; gap: 8px; }
         .btn-icon { width: 35px; height: 35px; display: flex; align-items: center; justify-content: center; border-radius: 8px; text-decoration: none; transition: 0.3s; }
         .btn-approve { background: #dcfce7; color: var(--success); }
         .btn-suspend { background: #fef3c7; color: var(--warning); }
         .btn-delete { background: #fee2e2; color: var(--danger); }
         .btn-icon:hover { transform: scale(1.1); }
-
-        /* Modal Styling */
         .modal { display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); z-index: 1000; align-items: center; justify-content: center; }
         .modal-content { background: white; padding: 2rem; border-radius: 16px; width: 100%; max-width: 450px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); }
         .form-group { margin-bottom: 1.2rem; }
         .form-group label { display: block; margin-bottom: 6px; font-weight: 600; font-size: 0.9rem; color: var(--slate); }
         .form-group input { width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 10px; font-family: inherit; }
-        
         .alert { padding: 1rem; border-radius: 10px; margin-bottom: 1.5rem; font-weight: 500; }
         .alert.success { background: #dcfce7; color: #166534; border: 1px solid var(--success); }
         .alert.error { background: #fee2e2; color: #b91c1c; border: 1px solid var(--danger); }
@@ -232,7 +215,6 @@ $hotels = $stmt->fetchAll();
         document.getElementById('addHotelModal').style.display = show ? 'flex' : 'none';
     }
     
-    // Close modal on outside click
     window.onclick = function(event) {
         let modal = document.getElementById('addHotelModal');
         if (event.target == modal) toggleModal(false);

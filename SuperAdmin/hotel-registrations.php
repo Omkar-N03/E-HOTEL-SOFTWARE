@@ -5,7 +5,6 @@ require_once '../config/sessions.php';
 protect_page(['super_admin']);
 
 try {
-    // Fetch pending requests
     $stmt = $pdo->prepare("SELECT * FROM hotels WHERE status = 'pending' ORDER BY created_at DESC");
     $stmt->execute();
     $pending_hotels = $stmt->fetchAll();
@@ -42,7 +41,6 @@ try {
 
         .admin-container { display: flex; min-height: 100vh; }
 
-        /* Sidebar - Consistent across OS */
         .sidebar { width: 260px; background: var(--dark); color: white; padding: 1.5rem; position: fixed; height: 100vh; z-index: 100; }
         .logo h2 { font-size: 1.25rem; font-weight: 800; margin-bottom: 2rem; display: flex; align-items: center; gap: 10px; }
         .sidebar ul { list-style: none; }
@@ -55,7 +53,6 @@ try {
         header h1 { font-size: 1.8rem; font-weight: 700; margin-bottom: 5px; }
         header p { color: var(--slate); }
 
-        /* Request Stats Bar */
         .status-overview {
             display: flex;
             gap: 1rem;
@@ -76,7 +73,6 @@ try {
             font-size: 0.85rem;
         }
 
-        /* Card Grid */
         .card-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
@@ -121,7 +117,6 @@ try {
             gap: 10px;
         }
 
-        /* Action Buttons */
         .btn {
             padding: 10px;
             border-radius: 8px;
@@ -141,7 +136,6 @@ try {
         .btn-reject { background: #fee2e2; color: var(--danger); }
         .btn-reject:hover { background: var(--danger); color: white; }
 
-        /* Empty State */
         .empty-state {
             text-align: center;
             padding: 5rem 2rem;

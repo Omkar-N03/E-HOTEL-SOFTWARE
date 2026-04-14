@@ -33,13 +33,14 @@ try {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title><?php echo htmlspecialchars($hotel_name); ?> | Dashboard</title>
+<title><?php echo $hotel_name; ?> | Dashboard</title>
 
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <link rel="stylesheet" href="../assets/css/sidebar.css">
 
-<style>:root {
+<style>
+:root {
     --primary: #6366f1;
     --primary-dark: #4f46e5;
     --success: #10b981;
@@ -61,49 +62,48 @@ try {
 body {
     background: var(--bg-body);
     display: flex;
+    min-height: 100vh;
+    overflow-x: hidden;
 }
 
 .main-content {
     margin-left: var(--sidebar-width);
-    padding: 2.5rem;
+    padding: 2rem;
     width: 100%;
+    transition: all 0.3s ease;
 }
-
 
 .header {
     display: flex;
     justify-content: space-between;
-    align-items: flex-end;
+    align-items: center;
     margin-bottom: 2.5rem;
+    flex-wrap: wrap;
+    gap: 20px;
 }
 
-.header h1 {
-    font-size: 1.9rem;
-    font-weight: 700;
-}
-
-.header p {
-    color: var(--text-muted);
-    margin-top: 5px;
-}
+.header h1 { font-size: clamp(1.5rem, 5vw, 1.9rem); font-weight: 700; color: var(--text-main); }
+.header p { color: var(--text-muted); margin-top: 5px; font-size: 0.95rem; }
 
 .refresh-btn {
-    padding: 10px 18px;
+    padding: 12px 20px;
     border-radius: 12px;
     border: 1px solid #e2e8f0;
     background: white;
     cursor: pointer;
     font-weight: 600;
-    transition: 0.3s;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: background 0.2s;
 }
 
-.refresh-btn:hover {
-    background: #f1f5f9;
-}
+.refresh-btn:hover { background: #f1f5f9; }
 
 .stats-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     gap: 1.5rem;
     margin-bottom: 2.5rem;
 }
@@ -115,59 +115,53 @@ body {
     box-shadow: var(--shadow);
     display: flex;
     align-items: center;
-    gap: 1rem;
-    transition: 0.3s;
-}
-
-.stat-card:hover {
-    transform: translateY(-4px);
+    gap: 1.2rem;
 }
 
 .icon-box {
-    width: 55px;
-    height: 55px;
+    width: 60px;
+    height: 60px;
     border-radius: 14px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.4rem;
-}
-
-.stat-card p {
-    font-size: 0.85rem;
-    color: var(--text-muted);
-    font-weight: 500;
-}
-
-.stat-card h2 {
     font-size: 1.5rem;
-    margin-top: 4px;
+    flex-shrink: 0;
 }
 
 .revenue { background:#dcfce7; color:#166534; }
 .orders { background:#e0e7ff; color:#3730a3; }
 .menu { background:#fef3c7; color:#92400e; }
 
-
 .dashboard-grid {
     display: grid;
-    grid-template-columns: 2fr 1fr;
+    grid-template-columns: 1fr;
     gap: 1.5rem;
 }
 
+@media(min-width: 1200px) {
+    .dashboard-grid { grid-template-columns: 2fr 1fr; }
+}
 
 .card {
     background: white;
     border-radius: var(--radius);
     padding: 1.5rem;
     box-shadow: var(--shadow);
+    height: 100%;
 }
 
+.table-container {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin-top: 1rem;
+}
 
 table {
     width: 100%;
     border-collapse: collapse;
-    margin-top: 1rem;
+    min-width: 600px;
 }
 
 th {
@@ -185,15 +179,10 @@ td {
     font-size: 0.9rem;
 }
 
-tr:hover {
-    background: #f9fafb;
-}
-
-
 .badge {
-    padding: 6px 14px;
+    padding: 6px 12px;
     border-radius: 20px;
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     font-weight: 700;
     text-transform: uppercase;
 }
@@ -203,28 +192,20 @@ tr:hover {
 .health div {
     display: flex;
     align-items: center;
-    gap: 8px;
-    margin-bottom: 10px;
+    gap: 10px;
+    margin-bottom: 14px;
     font-size: 0.9rem;
 }
 
-.quick {
-    background: linear-gradient(135deg, #6366f1, #4f46e5);
-    color: white;
+.quick { 
+    background: linear-gradient(135deg, #6366f1, #4f46e5); 
+    color: white; 
 }
-
-.quick h3 {
-    margin-bottom: 10px;
-}
-
-.quick p {
-    font-size: 0.85rem;
-    opacity: 0.9;
-}
-
+.quick h3 { color: white; }
+.quick p { opacity: 0.9; font-size: 0.9rem; margin: 10px 0; }
 .quick a {
     display: block;
-    margin-top: 18px;
+    margin-top: 15px;
     background: white;
     color: var(--primary);
     text-align: center;
@@ -232,57 +213,39 @@ tr:hover {
     border-radius: 10px;
     font-weight: 700;
     text-decoration: none;
-    transition: 0.3s;
+    transition: transform 0.2s;
+}
+.quick a:hover { transform: translateY(-2px); }
+
+@media(max-width: 1024px) {
+    .main-content { margin-left: 70px; padding: 1.5rem; }
 }
 
-.quick a:hover {
-    background: #f1f5f9;
-}
+@media(max-width: 768px) {
+    .main-content { 
+        margin-left: 0; 
+        padding: 1rem;
+        padding-top: 80px; 
+    }
 
-@keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
-}
+    .header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 15px;
+    }
 
-@keyframes slideUp {
-    from {
-        opacity: 0;
-        transform: translateY(25px);
+    .refresh-btn {
+        width: 100%;
+        justify-content: center;
     }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
 
-@keyframes slideRight {
-    from {
-        opacity: 0;
-        transform: translateX(-25px);
+    .stats-grid {
+        grid-template-columns: 1fr;
     }
-    to {
-        opacity: 1;
-        transform: translateX(0);
-    }
-}
 
-@keyframes scaleIn {
-    from {
-        opacity: 0;
-        transform: scale(0.95);
+    .card {
+        padding: 1.2rem;
     }
-    to {
-        opacity: 1;
-        transform: scale(1);
-    }
-}
-
-@media(max-width:1024px){
-    .main-content { margin-left: 80px; }
-}
-@media(max-width:768px){
-    .main-content { margin-left:0; }
-    .dashboard-grid { grid-template-columns:1fr; }
 }
 </style>
 </head>
@@ -293,100 +256,93 @@ tr:hover {
 
 <main class="main-content">
 
-
-<div class="header">
-    <div>
-        <h1>Business Hub</h1>
-        <p>Manage your restaurant operations at a glance.</p>
-    </div>
-    <button onclick="location.reload()" class="refresh-btn">
-        <i class="fa fa-sync"></i> Refresh
-    </button>
-</div>
-<div class="stats-grid">
-
-    <div class="stat-card">
-        <div class="icon-box revenue">
-            <i class="fa fa-indian-rupee-sign"></i>
-        </div>
+    <div class="header">
         <div>
-            <p>Today's Revenue</p>
-            <h2>₹<?php echo number_format($today_revenue,2); ?></h2>
+            <h1>Business Hub</h1>
+            <p>Manage your restaurant operations at a glance.</p>
+        </div>
+        <button onclick="location.reload()" class="refresh-btn">
+            <i class="fa fa-sync"></i> Refresh
+        </button>
+    </div>
+
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="icon-box revenue"><i class="fa fa-indian-rupee-sign"></i></div>
+            <div>
+                <p style="color: var(--text-muted); font-size: 0.85rem; font-weight: 600;">Today's Revenue</p>
+                <h2 style="font-size: 1.5rem; margin-top: 4px;">₹<?php echo number_format($today_revenue,2); ?></h2>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="icon-box orders"><i class="fa fa-bowl-food"></i></div>
+            <div>
+                <p style="color: var(--text-muted); font-size: 0.85rem; font-weight: 600;">Active Orders</p>
+                <h2 style="font-size: 1.5rem; margin-top: 4px;"><?php echo $active_orders; ?></h2>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="icon-box menu"><i class="fa fa-utensils"></i></div>
+            <div>
+                <p style="color: var(--text-muted); font-size: 0.85rem; font-weight: 600;">Total Menu Items</p>
+                <h2 style="font-size: 1.5rem; margin-top: 4px;"><?php echo $total_items; ?></h2>
+            </div>
         </div>
     </div>
 
-    <div class="stat-card">
-        <div class="icon-box orders">
-            <i class="fa fa-bowl-food"></i>
+    <div class="dashboard-grid">
+        <div class="card">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+                <h3 style="font-size: 1.1rem;">Recent Order Stream</h3>
+                <a href="reports.php" style="color:var(--primary);font-size:0.85rem;text-decoration:none;font-weight:600;">View All</a>
+            </div>
+
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Location</th>
+                            <th>Amount</th>
+                            <th>Status</th>
+                            <th>Time</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php if(empty($recent_orders)): ?>
+                            <tr><td colspan="5" style="text-align:center; padding: 2.5rem; color: var(--text-muted);">No orders found today.</td></tr>
+                        <?php else: ?>
+                            <?php foreach($recent_orders as $o): ?>
+                            <tr>
+                                <td style="font-weight: 600;">#<?= $o['id'] ?></td>
+                                <td>Table <?= $o['table_id'] ?></td>
+                                <td style="font-weight: 600;">₹<?= number_format($o['total_amount'],2) ?></td>
+                                <td><span class="badge served"><?= $o['status'] ?></span></td>
+                                <td style="color: var(--text-muted);"><?= date('h:i A', strtotime($o['order_time'])) ?></td>
+                            </tr>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
         </div>
-        <div>
-            <p>Active Orders</p>
-            <h2><?php echo $active_orders; ?></h2>
+
+        <div style="display:flex;flex-direction:column;gap:1.5rem;">
+            <div class="card health">
+                <h3 style="margin-bottom:20px; font-size: 1.1rem;">Service Health</h3>
+                <div><i class="fa fa-circle" style="color:var(--success); font-size: 10px;"></i> Database Responsive</div>
+                <div><i class="fa fa-circle" style="color:var(--success); font-size: 10px;"></i> Kitchen API Online</div>
+            </div>
+
+            <div class="card quick">
+                <h3 style="font-size: 1.1rem;">Quick Action</h3>
+                <p>Ready to update your inventory or categories?</p>
+                <a href="manage-menu.php">Go to Menu</a>
+            </div>
         </div>
     </div>
-
-    <div class="stat-card">
-        <div class="icon-box menu">
-            <i class="fa fa-utensils"></i>
-        </div>
-        <div>
-            <p>Total Menu Items</p>
-            <h2><?php echo $total_items; ?></h2>
-        </div>
-    </div>
-
-</div>
-
-
-<div class="dashboard-grid">
-
-    <div class="card">
-        <div style="display:flex;justify-content:space-between;">
-            <h3>Recent Order Stream</h3>
-            <a href="reports.php" style="color:var(--primary);font-size:0.85rem;">View All</a>
-        </div>
-
-        <table>
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Location</th>
-                    <th>Amount</th>
-                    <th>Status</th>
-                    <th>Time</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php foreach($recent_orders as $o): ?>
-                <tr>
-                    <td>#<?= $o['id'] ?></td>
-                    <td>Table <?= $o['table_id'] ?></td>
-                    <td>₹<?= number_format($o['total_amount'],2) ?></td>
-                    <td><span class="badge served"><?= $o['status'] ?></span></td>
-                    <td><?= date('h:i A', strtotime($o['order_time'])) ?></td>
-                </tr>
-                <?php endforeach; ?>
-            </tbody>
-        </table>
-    </div>
-
-    <div style="display:flex;flex-direction:column;gap:1.5rem;">
-
-        <div class="card health">
-            <h3>Service Health</h3>
-            <div>🟢 Database Responsive</div>
-            <div>🟢 Kitchen API Online</div>
-        </div>
-
-        <div class="card quick">
-            <h3>Quick Action</h3>
-            <p>Ready to update your inventory or categories?</p>
-            <a href="manage-menu.php">Go to Menu</a>
-        </div>
-
-    </div>
-
-</div>
 
 </main>
 

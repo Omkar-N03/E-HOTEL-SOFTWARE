@@ -60,7 +60,6 @@ $hotel_name = $_SESSION['hotel_name'] ?? 'Restaurant';
         .header-section h2 { margin: 0; font-size: 1.4rem; font-weight: 700; }
         .table-badge { display: inline-block; background: #f1f5f9; padding: 4px 12px; border-radius: 8px; font-size: 0.85rem; margin-top: 8px; font-weight: 600; }
 
-        /* Item UI */
         .order-item { 
             display: flex; 
             align-items: center; 
@@ -82,7 +81,6 @@ $hotel_name = $_SESSION['hotel_name'] ?? 'Restaurant';
         }
         .btn-qty { border: none; background: white; width: 24px; height: 24px; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); cursor: pointer; color: var(--primary); font-weight: bold; }
         
-        /* Summary UI */
         .bill-summary { background: #f8fafc; border-radius: 15px; padding: 15px; margin-top: 20px; }
         .summary-line { display: flex; justify-content: space-between; margin: 8px 0; font-size: 0.9rem; color: #64748b; }
         .summary-total { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border); font-weight: 700; font-size: 1.1rem; color: var(--dark); }
@@ -221,12 +219,10 @@ $hotel_name = $_SESSION['hotel_name'] ?? 'Restaurant';
         }
 
         document.getElementById('orderForm').onsubmit = function() {
-            // Visual feedback
             const btn = document.getElementById('submitBtn');
             btn.disabled = true;
             btn.innerHTML = '<i class="fa fa-circle-notch fa-spin"></i> Placing Order...';
             
-            // Clear cart after a slight delay to ensure form submits
             setTimeout(() => { localStorage.removeItem('restaurant_cart'); }, 500);
             return true;
         };

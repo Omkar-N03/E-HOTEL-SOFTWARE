@@ -8,7 +8,6 @@ $hotel_id = $_SESSION['hotel_id'];
 $message = "";
 $messageType = "";
 
-// Fetch current data
 $stmt = $pdo->prepare("SELECT * FROM hotels WHERE id = ?");
 $stmt->execute([$hotel_id]);
 $hotel = $stmt->fetch();
@@ -47,7 +46,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_settings'])) {
             $message = "Configuration synced successfully.";
             $messageType = "success";
             
-            // Refresh local object
             $hotel['hotel_name'] = $hotel_name;
             $hotel['tax_percent'] = $tax_percent;
             $hotel['currency'] = $currency;
@@ -67,6 +65,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_settings'])) {
     <title>Settings | <?php echo htmlspecialchars($hotel['hotel_name']); ?></title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="../assets/css/sidebar.css">
     <style>
         :root {
             --primary: #4f46e5;
@@ -78,84 +77,79 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_settings'])) {
             --border-color: #e2e8f0;
             --radius-lg: 12px;
             --radius-md: 8px;
-            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
             --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+            --sidebar-width: 280px;
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Inter', sans-serif; background-color: var(--bg-body); color: var(--text-main); line-height: 1.5; }
 
-        .main-content { margin-left: 280px; padding: 3rem; max-width: 1200px; }
+        .main-content { 
+            margin-left: var(--sidebar-width); 
+            padding: 2rem; 
+            min-height: 100vh;
+            transition: all 0.3s ease;
+        }
 
-        /* Header UI */
         .header-ui { margin-bottom: 2rem; }
-        .header-ui h1 { font-size: 1.875rem; font-weight: 700; letter-spacing: -0.025em; }
-        .header-ui p { color: var(--text-muted); margin-top: 0.25rem; }
+        .header-ui h1 { font-size: 1.875rem; font-weight: 700; margin-bottom: 0.5rem; }
+        .header-ui p { color: var(--text-muted); }
 
-        /* Card Layout */
         .settings-container {
             background: var(--bg-surface);
             border-radius: var(--radius-lg);
             box-shadow: var(--shadow-md);
             border: 1px solid var(--border-color);
             overflow: hidden;
+            max-width: 1000px;
         }
 
         .settings-grid {
             display: grid;
-            grid-template-columns: 300px 1fr;
-            min-height: 600px;
+            grid-template-columns: 240px 1fr;
         }
 
-        /* Tabs-like Sidebar inside Card */
         .settings-nav {
             background: #f8fafc;
             border-right: 1px solid var(--border-color);
             padding: 1.5rem;
         }
 
-        .nav-group-title {
-            text-transform: uppercase;
-            font-size: 0.75rem;
-            font-weight: 700;
-            color: var(--text-muted);
-            letter-spacing: 0.05em;
-            margin-bottom: 1rem;
+        .nav-item-active {
+            color: var(--primary); 
+            font-weight: 600; 
+            padding: 0.75rem 1rem; 
+            border-left: 3px solid var(--primary); 
+            background: #eff6ff; 
+            border-radius: 0 4px 4px 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
 
-        /* Form Styling */
         .form-content { padding: 2.5rem; }
         .form-section { margin-bottom: 2.5rem; }
-        .form-section-title { 
-            font-size: 1.1rem; 
-            font-weight: 600; 
-            margin-bottom: 1.25rem; 
-            display: flex; 
-            align-items: center; 
-            gap: 10px; 
-            border-bottom: 1px solid var(--border-color);
-            padding-bottom: 0.75rem;
+        .form-section-title { font-size: 1.1rem; font-weight: 600; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 10px; color: var(--text-main); }
+        
+        .input-grid { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); 
+            gap: 1.5rem; 
         }
 
-        .input-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
-        .field-label { display: block; font-size: 0.875rem; font-weight: 500; margin-bottom: 0.5rem; }
+        .field-label { display: block; font-size: 0.875rem; font-weight: 500; margin-bottom: 0.5rem; color: var(--text-main); }
         
-        input[type="text"], input[type="number"] {
+        input[type="text"], input[type="number"], input[type="file"] {
             width: 100%;
-            padding: 0.625rem 0.875rem;
+            padding: 0.75rem;
             border: 1px solid var(--border-color);
             border-radius: var(--radius-md);
             font-size: 0.95rem;
-            transition: all 0.2s;
+            transition: border-color 0.2s;
         }
 
-        input:focus {
-            outline: none;
-            border-color: var(--primary);
-            box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1);
-        }
+        input:focus { outline: none; border-color: var(--primary); ring: 2px solid #e0e7ff; }
 
-        /* Logo Component */
         .logo-uploader {
             display: flex;
             align-items: center;
@@ -167,14 +161,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_settings'])) {
         }
 
         .logo-uploader img {
-            width: 80px; height: 80px;
+            width: 70px; height: 70px;
             border-radius: var(--radius-md);
             object-fit: cover;
             background: white;
-            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border-color);
         }
 
-        /* Action Footer */
         .form-footer {
             padding: 1.5rem 2.5rem;
             background: #f8fafc;
@@ -186,7 +179,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_settings'])) {
         .btn-primary {
             background: var(--primary);
             color: white;
-            padding: 0.75rem 1.5rem;
+            padding: 0.75rem 2rem;
             border-radius: var(--radius-md);
             font-weight: 600;
             border: none;
@@ -196,24 +189,54 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_settings'])) {
 
         .btn-primary:hover { background: var(--primary-hover); }
 
-        /* Alerts */
+        @media (max-width: 1024px) {
+            .main-content { margin-left: 80px; } /* Assuming collapsed sidebar */
+        }
+
+        @media (max-width: 768px) {
+            .main-content { 
+                margin-left: 0; 
+                padding: 1rem;
+                padding-top: 4rem; 
+            }
+            
+            .settings-grid { 
+                grid-template-columns: 1fr; 
+            }
+
+            .settings-nav { 
+                display: none; 
+            }
+
+            .form-content { 
+                padding: 1.5rem; 
+            }
+
+            .logo-uploader { 
+                flex-direction: column; 
+                text-align: center; 
+            }
+
+            .form-footer {
+                padding: 1.5rem;
+            }
+
+            .btn-primary {
+                width: 100%;
+            }
+        }
+
         .alert {
             padding: 1rem;
             border-radius: var(--radius-md);
             margin-bottom: 1.5rem;
-            font-weight: 500;
             display: flex;
             align-items: center;
             gap: 0.75rem;
+            font-weight: 500;
         }
         .alert.success { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
         .alert.error { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
-
-        @media (max-width: 992px) {
-            .settings-grid { grid-template-columns: 1fr; }
-            .settings-nav { display: none; }
-            .main-content { margin-left: 0; padding: 1.5rem; }
-        }
     </style>
 </head>
 <body>
@@ -229,61 +252,61 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_settings'])) {
     <?php if($message): ?>
     <div class="alert <?php echo $messageType; ?>">
         <i class="fa <?php echo ($messageType == 'success') ? 'fa-circle-check' : 'fa-circle-xmark'; ?>"></i>
-        <?php echo $message; ?>
+        <?php echo htmlspecialchars($message); ?>
     </div>
     <?php endif; ?>
 
     <div class="settings-container">
         <form method="POST" enctype="multipart/form-data" class="settings-grid">
             <aside class="settings-nav">
-                <div class="nav-group-title">Configuration</div>
-                <div style="color: var(--primary); font-weight: 600; padding: 0.5rem 0; border-left: 3px solid var(--primary); padding-left: 1rem; background: #eff6ff; border-radius: 0 4px 4px 0;">
+                <div style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 1rem; letter-spacing: 0.05em;">Configuration</div>
+                <div class="nav-item-active">
                     <i class="fa fa-sliders"></i> General
                 </div>
-                </aside>
+            </aside>
 
             <div class="form-content">
                 <input type="hidden" name="update_settings" value="1">
                 
                 <section class="form-section">
-                    <h3 class="form-section-title"><i class="fa fa-shop"></i> Branding</h3>
+                    <h3 class="form-section-title">
+                        <i class="fa fa-shop" style="color: var(--primary);"></i> Branding
+                    </h3>
                     <div style="margin-bottom: 1.5rem;">
                         <label class="field-label">Restaurant Display Name</label>
-                        <input type="text" name="hotel_name" value="<?php echo htmlspecialchars($hotel['hotel_name']); ?>" required placeholder="Enter business name">
+                        <input type="text" name="hotel_name" value="<?php echo htmlspecialchars($hotel['hotel_name']); ?>" required>
                     </div>
                     
-                    <label class="field-label">Store Logo</label>
-                    <div class="logo-uploader">
-                        <img src="../assets/img/logos/<?php echo $hotel['logo_url'] ?: 'default-hotel.png'; ?>" id="preview" alt="Logo">
-                        <div>
-                            <input type="file" name="logo" id="logoInput" accept="image/*" style="font-size: 0.8rem; margin-bottom: 0.5rem;">
-                            <p style="font-size: 0.75rem; color: var(--text-muted);">Recommended: 512x512px (PNG or WEBP)</p>
+                    <div style="margin-bottom: 0.5rem;">
+                        <label class="field-label">Store Logo</label>
+                        <div class="logo-uploader">
+                            <img src="../assets/img/logos/<?php echo $hotel['logo_url'] ?: 'default-hotel.png'; ?>" id="preview" alt="Logo">
+                            <div style="flex: 1; width: 100%;">
+                                <input type="file" name="logo" id="logoInput" accept="image/*">
+                                <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">JPG, PNG or WEBP. Square ratio preferred.</p>
+                            </div>
                         </div>
                     </div>
                 </section>
 
                 <section class="form-section">
-                    <h3 class="form-section-title"><i class="fa fa-file-invoice-dollar"></i> Localization & Tax</h3>
+                    <h3 class="form-section-title">
+                        <i class="fa fa-file-invoice-dollar" style="color: var(--primary);"></i> Localization & Tax
+                    </h3>
                     <div class="input-grid">
                         <div>
                             <label class="field-label">Currency Symbol</label>
-                            <input type="text" name="currency" value="<?php echo htmlspecialchars($hotel['currency']); ?>" required placeholder="e.g. $, ₹, £">
+                            <input type="text" name="currency" value="<?php echo htmlspecialchars($hotel['currency']); ?>" placeholder="e.g. $" required>
                         </div>
                         <div>
                             <label class="field-label">Tax Rate (%)</label>
-                            <input type="number" name="tax_percent" step="0.01" value="<?php echo $hotel['tax_percent']; ?>" required>
+                            <input type="number" name="tax_percent" step="0.01" value="<?php echo $hotel['tax_percent']; ?>" placeholder="0.00" required>
                         </div>
-                    </div>
-                    <div style="margin-top: 1.5rem; padding: 1rem; background: #fffbeb; border-radius: var(--radius-md); border: 1px solid #fef3c7; color: #92400e; font-size: 0.85rem; display: flex; gap: 10px; align-items: center;">
-                        <i class="fa fa-lightbulb"></i>
-                        <span>Tax settings apply to all items in the digital menu and generated receipts.</span>
                     </div>
                 </section>
 
                 <div class="form-footer">
-                    <button type="submit" class="btn-primary">
-                        Save Changes
-                    </button>
+                    <button type="submit" class="btn-primary">Save Changes</button>
                 </div>
             </div>
         </form>
@@ -291,7 +314,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_settings'])) {
 </main>
 
 <script>
-    // Real-time image preview
     document.getElementById('logoInput').onchange = evt => {
         const [file] = evt.target.files;
         if (file) {
