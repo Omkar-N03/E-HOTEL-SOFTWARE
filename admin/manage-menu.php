@@ -1,223 +1,317 @@
 <?php
 require_once '../config/db.php';
 require_once '../config/sessions.php';
-
 protect_page(['hotel_admin']);
 
 $hotel_id = $_SESSION['hotel_id'];
 $message = "";
 $message_type = "";
 
-if (isset($_GET['msg'])) {
-    if ($_GET['msg'] == 'deleted') {
-        $message = "Item removed successfully.";
-        $message_type = "success";
-    } elseif ($_GET['msg'] == 'updated') {
-        $message = "Item updated successfully.";
-        $message_type = "success";
-    }
-}
-
 if (isset($_GET['delete'])) {
     $id = (int)$_GET['delete'];
     $stmt = $pdo->prepare("SELECT image_url FROM menu_items WHERE id = ? AND hotel_id = ?");
     $stmt->execute([$id, $hotel_id]);
-    $item = $stmt->fetch();
-    if($item && $item['image_url'] && file_exists("../" . $item['image_url'])) {
+    if ($item = $stmt->fetch() && $item['image_url'] && file_exists("../" . $item['image_url'])) {
         unlink("../" . $item['image_url']);
     }
-    $stmt = $pdo->prepare("DELETE FROM menu_items WHERE id = ? AND hotel_id = ?");
-    $stmt->execute([$id, $hotel_id]);
+    $pdo->prepare("DELETE FROM menu_items WHERE id = ? AND hotel_id = ?")->execute([$id, $hotel_id]);
     header("Location: manage-menu.php?msg=deleted");
     exit();
 }
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_item'])) {
-    $name = strip_tags($_POST['item_name']);
-    $price = $_POST['price'];
-    $calories = (int)$_POST['calories'];
-    $protein = (int)$_POST['protein'];
-    $category = $_POST['category'];
+    $name = trim(strip_tags($_POST['item_name']));
+    $price = filter_var($_POST['price'], FILTER_VALIDATE_FLOAT);
+    $calories = filter_var($_POST['calories'], FILTER_VALIDATE_INT) ?: 0;
+    $protein = filter_var($_POST['protein'], FILTER_VALIDATE_INT) ?: 0;
+    $category = $_POST['category'] ?? '';
     $image_path = null;
 
-    if (isset($_FILES['dish_image']) && $_FILES['dish_image']['error'] == 0) {
-        $upload_dir = "../assets/images/menu/";
-        if (!is_dir($upload_dir)) mkdir($upload_dir, 0777, true);
-        $file_ext = pathinfo($_FILES["dish_image"]["name"], PATHINFO_EXTENSION);
-        $new_filename = time() . "_" . uniqid() . "." . $file_ext;
-        $target_file = $upload_dir . $new_filename;
-        if (move_uploaded_file($_FILES["dish_image"]["tmp_name"], $target_file)) {
-            $image_path = "assets/images/menu/" . $new_filename;
+    if (!empty($name) && $price > 0) {
+        if (isset($_FILES['dish_image']) && $_FILES['dish_image']['error'] == 0) {
+            $upload_dir = "../assets/images/menu/";
+            if (!is_dir($upload_dir)) {
+                mkdir($upload_dir, 0777, true);
+            }
+            $image_path = "assets/images/menu/" . time() . "_" . $_FILES["dish_image"]["name"];
+            move_uploaded_file($_FILES["dish_image"]["tmp_name"], "../" . $image_path);
         }
-    }
-
-    try {
-        $stmt = $pdo->prepare("INSERT INTO menu_items (hotel_id, name, price, image_url, calories, protein, category, is_available) VALUES (?, ?, ?, ?, ?, ?, ?, 1)");
-        $stmt->execute([$hotel_id, $name, $price, $image_path, $calories, $protein, $category]);
+        $pdo->prepare("INSERT INTO menu_items (hotel_id, name, price, image_url, calories, protein, category, is_available) VALUES (?,?,?,?,?,?,?,1)")
+            ->execute([$hotel_id, $name, $price, $image_path, $calories, $protein, $category]);
         $message = "Item added successfully!";
         $message_type = "success";
-    } catch (PDOException $e) {
-        $message = "Database Error: " . $e->getMessage();
-        $message_type = "error";
     }
 }
 
-try {
-    $stmt = $pdo->prepare("SELECT * FROM menu_items WHERE hotel_id = ? ORDER BY category, name");
-    $stmt->execute([$hotel_id]);
-    $menu_items = $stmt->fetchAll();
-} catch (PDOException $e) {
-    $menu_items = [];
-    $message = "Error: " . $e->getMessage();
-    $message_type = "error";
-}
+$items = $pdo->prepare("SELECT * FROM menu_items WHERE hotel_id = ? ORDER BY category, name");
+$items->execute([$hotel_id]);
+$menu_list = $items->fetchAll();
 ?>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Manage Menu | <?php echo htmlspecialchars($_SESSION['hotel_name'] ?? 'Admin'); ?></title>
-    <link rel="stylesheet" href="../assets/css/admin-style.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <title>Manage Menu | Rio</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="../assets/css/sidebar.css">
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-bg: #f5f6ff;
+            --text-dark: #0f172a;
+            --text-gray: #64748b;
+            --bg-body: #f8fafc;
+            --success: #10b981;
+            --danger: #ef4444;
+        }
+
+        @keyframes slideRight {
+            from { opacity: 0; transform: translateX(-20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-body);
+            display: flex;
+            color: var(--text-dark);
+        }
+
+        .sidebar {
+            width: 280px;
+            background: linear-gradient(135deg, var(--primary) 0%, #4f46e5 100%);
+            height: 100vh;
+            position: fixed;
+            padding: 2rem 1.5rem;
+            color: white;
+            box-shadow: 2px 0 15px rgba(99, 102, 241, 0.2);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 3rem;
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+
+        .brand img {
+            background: rgba(255, 255, 255, 0.25);
+            padding: 8px;
+            border-radius: 12px;
+            width: 45px;
+            height: 45px;
+            object-fit: cover;
+        }
+
+        .nav-list {
+            list-style: none;
+            flex: 1;
+        }
+
+        .nav-item {
+            margin-bottom: 0.8rem;
+            opacity: 0;
+            animation: slideRight 0.5s ease forwards;
+        }
+
+        .nav-item:nth-child(1) { animation-delay: 0.1s; }
+        .nav-item:nth-child(2) { animation-delay: 0.2s; }
+        .nav-item:nth-child(3) { animation-delay: 0.3s; }
+        .nav-item:nth-child(4) { animation-delay: 0.4s; }
+        .nav-item:nth-child(5) { animation-delay: 0.5s; }
+        .nav-item:nth-child(6) { animation-delay: 0.6s; }
+
+        .nav-link {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 0.9rem 1rem;
+            color: rgba(255, 255, 255, 0.8);
+            text-decoration: none;
+            border-radius: 12px;
+            font-weight: 500;
+            transition: 0.3s;
+        }
+
+        .nav-link:hover {
+            background: rgba(255, 255, 255, 0.15);
+            color: white;
+            transform: translateX(5px);
+        }
+
+        .nav-link.active {
+            background: rgba(255, 255, 255, 0.25);
+            color: white;
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.2);
+        }
+
+        .logout-section {
+            margin-top: auto;
+            border-top: 1px solid rgba(255, 255, 255, 0.2);
+            padding-top: 1rem;
+        }
+
+        .main-content {
+            margin-left: 280px;
+            flex: 1;
+            padding: 3rem;
+            animation: fadeIn 0.8s ease;
+        }
+
+        .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2.5rem; }
+        .page-header h1 { font-size: 1.75rem; font-weight: 700; }
+        .btn-add { background: var(--primary); color: white; border: none; padding: 12px 24px; border-radius: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; }
+        .table-container { background: white; border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); overflow: hidden; }
+        table { width: 100%; border-collapse: collapse; }
+        th { text-align: left; padding: 16px 24px; background: #fcfdfe; color: var(--text-gray); font-size: 0.75rem; text-transform: uppercase; border-bottom: 1px solid #f1f5f9; }
+        td { padding: 16px 24px; border-bottom: 1px solid #f8fafc; vertical-align: middle; }
+        .dish-cell { display: flex; align-items: center; gap: 16px; }
+        .dish-img { width: 56px; height: 56px; border-radius: 12px; object-fit: cover; background: #f1f5f9; }
+        .dish-name { font-weight: 600; color: var(--text-dark); }
+        .category-pill { background: var(--primary-bg); color: var(--primary); padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; }
+        .price-text { font-weight: 700; font-size: 1rem; }
+        .nutrition-info { font-size: 0.8rem; color: var(--text-gray); line-height: 1.4; }
+        .switch { position: relative; display: inline-block; width: 44px; height: 24px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; inset: 0; background-color: #e2e8f0; transition: 0.4s; border-radius: 24px; }
+        .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: 0.4s; border-radius: 50%; }
+        input:checked + .slider { background-color: var(--success); }
+        input:checked + .slider:before { transform: translateX(20px); }
+        .action-btns a { color: var(--text-gray); font-size: 1.1rem; margin-left: 12px; transition: 0.2s; }
+        .action-btns a:hover { color: var(--primary); }
+        .modal { display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(4px); z-index: 1000; align-items: center; justify-content: center; }
+        .modal-content { background: white; padding: 2rem; border-radius: 20px; width: 480px; }
+        .form-group { margin-bottom: 1.25rem; }
+        .form-control { width: 100%; padding: 10px 14px; border: 1px solid #e2e8f0; border-radius: 10px; }
+
+        @media (max-width: 1024px) {
+            .sidebar { width: 80px; padding: 2rem 0.5rem; }
+            .sidebar span, .brand > span { display: none; }
+            .main-content { margin-left: 80px; }
+        }
+    </style>
 </head>
 <body>
-<div class="admin-container">
-    <nav class="sidebar">
-        <div class="hotel-profile">
-            <i class="fa fa-utensils fa-2x" style="color: #2ecc71; margin-bottom: 10px;"></i>
-            <h3><?php echo htmlspecialchars($_SESSION['hotel_name'] ?? 'Hotel Admin'); ?></h3>
-        </div>
-        <ul>
-            <li><a href="dashboard.php"><i class="fa fa-home"></i> Overview</a></li>
-            <li class="active"><a href="manage-menu.php"><i class="fa fa-list"></i> Manage Menu</a></li>
-            <li><a href="manage-tables.php"><i class="fa fa-qrcode"></i> Tables & QR</a></li>
-            <li><a href="../logout.php"><i class="fa fa-sign-out-alt"></i> Logout</a></li>
-        </ul>
-    </nav>
+    
+    <?php include 'sidebar.php'; ?>
+
     <main class="main-content">
-        <header class="section-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
-            <h1>Menu Management</h1>
-            <button class="btn btn-primary" onclick="toggleModal()" style="background: #3498db; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">
-                <i class="fa fa-plus"></i> Add New Dish
-            </button>
-        </header>
-        <?php if($message): ?>
-            <div class="alert" style="padding: 15px; margin-bottom: 20px; border-radius: 5px; background: <?php echo $message_type == 'success' ? '#dcfce7' : '#fee2e2'; ?>; color: <?php echo $message_type == 'success' ? '#166534' : '#991b1b'; ?>; border: 1px solid <?php echo $message_type == 'success' ? '#166534' : '#991b1b'; ?>;">
-                <?php echo $message; ?>
+        <header class="page-header">
+            <div>
+                <h1>Menu Management</h1>
+                <p style="color: var(--text-gray);">Add, edit or remove dishes from your digital menu.</p>
             </div>
-        <?php endif; ?>
-        <section class="table-section" style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-            <table style="width: 100%; border-collapse: collapse;">
+            <button class="btn-add" onclick="openModal()"><i class="fa fa-plus"></i> Add New Dish</button>
+        </header>
+
+        <div class="table-container">
+            <table>
                 <thead>
-                    <tr style="text-align: left; border-bottom: 2px solid #eee;">
-                        <th style="padding: 12px;">Dish</th>
+                    <tr>
+                        <th>Dish Details</th>
                         <th>Category</th>
                         <th>Price</th>
                         <th>Nutrition</th>
                         <th>Status</th>
-                        <th>Actions</th>
+                        <th style="text-align: right;">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <?php if (empty($menu_items)): ?>
-                        <tr><td colspan="6" style="padding: 30px; text-align: center; color: #888;">No items found. Click 'Add New Dish' to start.</td></tr>
-                    <?php else: ?>
-                        <?php foreach($menu_items as $item): ?>
-                        <tr style="border-bottom: 1px solid #eee;">
-                            <td style="padding: 12px; display: flex; align-items: center; gap: 12px;">
-                                <?php if($item['image_url']): ?>
-                                    <img src="../<?php echo $item['image_url']; ?>" style="width: 45px; height: 45px; object-fit: cover; border-radius: 6px; border: 1px solid #ddd;">
-                                <?php else: ?>
-                                    <div style="width: 45px; height: 45px; background: #f9f9f9; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: #ccc;"><i class="fa fa-image"></i></div>
-                                <?php endif; ?>
-                                <strong><?php echo htmlspecialchars($item['name']); ?></strong>
-                            </td>
-                            <td><span style="background: #e8f4fd; color: #3498db; padding: 4px 8px; border-radius: 4px; font-size: 0.85rem;"><?php echo htmlspecialchars($item['category'] ?? 'General'); ?></span></td>
-                            <td>₹<?php echo number_format($item['price'], 2); ?></td>
-                            <td style="font-size: 0.85rem; color: #666;">
-                                <?php echo $item['calories']; ?> kcal | <?php echo $item['protein']; ?>g Prot
-                            </td>
-                            <td>
-                                <label class="switch">
-                                    <input type="checkbox" <?php echo ($item['is_available'] == 1) ? 'checked' : ''; ?> 
-                                           onchange="toggleStock(<?php echo $item['id']; ?>)">
-                                    <span class="slider round"></span>
-                                </label>
-                            </td>
-                            <td>
-                                <a href="edit-item.php?id=<?php echo $item['id']; ?>" style="color: #3498db; margin-right: 15px;"><i class="fa fa-edit"></i></a>
-                                <a href="manage-menu.php?delete=<?php echo $item['id']; ?>" style="color: #e74c3c;" onclick="return confirm('Are you sure you want to delete this dish?')"><i class="fa fa-trash"></i></a>
-                            </td>
-                        </tr>
-                        <?php endforeach; ?>
-                    <?php endif; ?>
+                    <?php foreach ($menu_list as $item): ?>
+                    <tr>
+                        <td>
+                            <div class="dish-cell">
+                                <img src="../<?= $item['image_url'] ?: 'assets/images/placeholder.jpg' ?>" alt="<?= htmlspecialchars($item['name']) ?>" class="dish-img">
+                                <span class="dish-name"><?= htmlspecialchars($item['name']) ?></span>
+                            </div>
+                        </td>
+                        <td><span class="category-pill"><?= htmlspecialchars($item['category']) ?></span></td>
+                        <td><span class="price-text">₹<?= number_format($item['price'], 2) ?></span></td>
+                        <td>
+                            <div class="nutrition-info">
+                                <span><i class="fa fa-fire" style="color:#f97316"></i> <?= $item['calories'] ?> kcal</span><br>
+                                <span><i class="fa fa-leaf" style="color:#10b981"></i> <?= $item['protein'] ?>g Protein</span>
+                            </div>
+                        </td>
+                        <td>
+                            <label class="switch">
+                                <input type="checkbox" <?= $item['is_available'] ? 'checked' : '' ?> onchange="toggleStatus(<?= $item['id'] ?>)">
+                                <span class="slider"></span>
+                            </label>
+                        </td>
+                        <td class="action-btns" style="text-align: right;">
+                            <a href="edit-item.php?id=<?= $item['id'] ?>"><i class="fa fa-pen-to-square"></i></a>
+                            <a href="?delete=<?= $item['id'] ?>" class="delete-btn" onclick="return confirm('Delete item?')"><i class="fa fa-trash"></i></a>
+                        </td>
+                    </tr>
+                    <?php endforeach; ?>
                 </tbody>
             </table>
-        </section>
+        </div>
     </main>
-</div>
-<div id="itemModal" class="modal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6);">
-    <div class="modal-content" style="background: white; margin: 5% auto; padding: 25px; width: 450px; border-radius: 10px; position: relative; box-shadow: 0 5px 15px rgba(0,0,0,0.3);">
-        <span onclick="toggleModal()" style="position: absolute; right: 20px; top: 15px; cursor: pointer; font-size: 24px; color: #aaa;">&times;</span>
-        <h2 style="margin-bottom: 20px; color: #2c3e50;">Add New Menu Item</h2>
-        <form method="POST" enctype="multipart/form-data">
-            <input type="hidden" name="add_item" value="1">
-            <div style="margin-bottom: 15px;">
-                <label style="display: block; margin-bottom: 5px; font-weight: bold;">Dish Name</label>
-                <input type="text" name="item_name" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px;" required placeholder="e.g. Butter Chicken">
-            </div>
-            <div style="margin-bottom: 15px;">
-                <label style="display: block; margin-bottom: 5px; font-weight: bold;">Dish Image</label>
-                <input type="file" name="dish_image" accept="image/*" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 5px;">
-            </div>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
-                <div>
-                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">Price (₹)</label>
-                    <input type="number" name="price" step="0.01" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px;" required>
+
+    <dialog id="addModal" class="modal">
+        <div class="modal-content">
+            <h2 id="modalTitle" style="margin-bottom: 1.5rem;">Add Menu Item</h2>
+            <form method="POST" enctype="multipart/form-data">
+                <input type="hidden" name="add_item" value="1">
+                <div class="form-group">
+                    <label for="item_name">Dish Name</label>
+                    <input type="text" id="item_name" name="item_name" class="form-control" placeholder="e.g. Classic Sweet Lassi" required>
                 </div>
-                <div>
-                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">Category</label>
-                    <select name="category" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px;">
-                        <option value="Starters">Starters</option>
-                        <option value="Main Course">Main Course</option>
-                        <option value="Desserts">Desserts</option>
-                        <option value="Beverages">Beverages</option>
-                    </select>
+                <div style="display: flex; gap: 15px;">
+                    <div class="form-group" style="flex: 1;">
+                        <label for="price">Price (₹)</label>
+                        <input type="number" id="price" step="0.01" name="price" class="form-control" required>
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label for="category">Category</label>
+                        <select id="category" name="category" class="form-control">
+                            <option>Beverages</option>
+                            <option>Main Course</option>
+                            <option>Starters</option>
+                        </select>
+                    </div>
                 </div>
-            </div>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
-                <div>
-                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">Calories</label>
-                    <input type="number" name="calories" value="0" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px;">
+                <div class="form-group">
+                    <label for="dish_image">Dish Image</label>
+                    <input type="file" id="dish_image" name="dish_image" class="form-control">
                 </div>
-                <div>
-                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">Protein (g)</label>
-                    <input type="number" name="protein" value="0" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px;">
-                </div>
-            </div>
-            <button type="submit" style="width: 100%; padding: 12px; background: #2ecc71; color: white; border: none; border-radius: 5px; font-weight: bold; cursor: pointer;">Add to Menu</button>
-        </form>
-    </div>
-</div>
-<script>
-function toggleModal() {
-    const modal = document.getElementById('itemModal');
-    modal.style.display = (modal.style.display === 'block') ? 'none' : 'block';
-}
-function toggleStock(itemId) {
-    fetch(`../api/toggle-availability.php?id=${itemId}`)
-    .then(response => response.json())
-    .then(data => {
-        if(!data.success) {
-            alert('Update failed: ' + (data.message || 'Unknown error'));
-            location.reload(); 
+                <button type="submit" class="btn-add" style="width: 100%; justify-content: center; margin-top: 10px;">Save Item</button>
+            </form>
+        </div>
+    </dialog>
+
+    <script>
+        const openModal = () => document.getElementById('addModal').showModal();
+        const closeModal = (e) => document.getElementById('addModal').close();
+
+        function toggleStatus(id) {
+            fetch(`../api/toggle-availability.php?id=${id}`)
+                .then(res => res.json())
+                .catch(() => alert("Update failed"));
         }
-    })
-    .catch(err => {
-        console.error('API Error:', err);
-        alert('Could not connect to the server.');
-    });
-}
-</script>
+
+        document.getElementById('addModal').addEventListener('click', (e) => {
+            if (e.target.id === 'addModal') document.getElementById('addModal').close();
+        });
+    </script>
 </body>
 </html>

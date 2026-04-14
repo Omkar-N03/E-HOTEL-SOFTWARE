@@ -38,9 +38,20 @@ try {
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Order History | <?php echo $_SESSION['hotel_name']; ?></title>
     <link rel="stylesheet" href="../assets/css/admin-style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        @media (max-width: 768px) {
+            .filter-form { flex-direction: column; gap: 1rem; }
+            .filter-group { width: 100%; }
+            .align-end { align-items: stretch; }
+            .align-end button, .align-end a { width: 100%; }
+            table { font-size: 0.9rem; }
+            .items-cell { max-width: 150px; overflow: hidden; text-overflow: ellipsis; }
+        }
+    </style>
 </head>
 <body>
 
@@ -66,12 +77,12 @@ try {
         <section class="filter-bar card">
             <form method="GET" action="order-history.php" class="filter-form">
                 <div class="filter-group">
-                    <label>Select Date</label>
-                    <input type="date" name="date" value="<?php echo $date_filter; ?>">
+                    <label for="filter-date">Select Date</label>
+                    <input type="date" id="filter-date" name="date" value="<?php echo $date_filter; ?>">
                 </div>
                 <div class="filter-group">
-                    <label>Table No.</label>
-                    <input type="number" name="table" placeholder="All Tables" value="<?php echo $table_filter; ?>">
+                    <label for="filter-table">Table No.</label>
+                    <input type="number" id="filter-table" name="table" placeholder="All Tables" value="<?php echo $table_filter; ?>">
                 </div>
                 <div class="filter-group align-end">
                     <button type="submit" class="btn btn-primary"><i class="fa fa-search"></i> Filter</button>
@@ -81,37 +92,39 @@ try {
         </section>
 
         <section class="table-section card">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Order ID</th>
-                        <th>Table</th>
-                        <th>Items Ordered</th>
-                        <th>Total Price</th>
-                        <th>Completion Time</th>
-                        <th>Action</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php if (empty($orders)): ?>
-                        <tr><td colspan="6" class="text-center">No orders found for this criteria.</td></tr>
-                    <?php endif; ?>
-                    <?php foreach ($orders as $order): ?>
-                    <tr>
-                        <td>#<?php echo $order['id']; ?></td>
-                        <td><span class="table-tag">T-<?php echo $order['table_number']; ?></span></td>
-                        <td class="items-cell"><?php echo htmlspecialchars($order['items_summary']); ?></td>
-                        <td><strong>₹<?php echo number_format($order['total_price'], 2); ?></strong></td>
-                        <td><?php echo date('d M, H:i', strtotime($order['order_time'])); ?></td>
-                        <td>
-                            <button class="btn-icon" onclick="window.print()" title="Print Receipt">
-                                <i class="fa fa-print"></i>
-                            </button>
-                        </td>
-                    </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
+            <div class="table-responsive">
+                <table role="table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Order ID</th>
+                            <th scope="col">Table</th>
+                            <th scope="col">Items Ordered</th>
+                            <th scope="col">Total Price</th>
+                            <th scope="col">Completion Time</th>
+                            <th scope="col">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php if (empty($orders)): ?>
+                            <tr><td colspan="6" class="text-center">No orders found for this criteria.</td></tr>
+                        <?php endif; ?>
+                        <?php foreach ($orders as $order): ?>
+                        <tr>
+                            <td data-label="Order ID">#<?php echo $order['id']; ?></td>
+                            <td data-label="Table"><span class="table-tag">T-<?php echo $order['table_number']; ?></span></td>
+                            <td data-label="Items" class="items-cell"><?php echo htmlspecialchars($order['items_summary']); ?></td>
+                            <td data-label="Total"><strong>₹<?php echo number_format($order['total_price'], 2); ?></strong></td>
+                            <td data-label="Time"><?php echo date('d M, H:i', strtotime($order['order_time'])); ?></td>
+                            <td data-label="Action">
+                                <button class="btn-icon" onclick="window.print()" title="Print Receipt" aria-label="Print Receipt for Order #<?php echo $order['id']; ?>">
+                                    <i class="fa fa-print" aria-hidden="true"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
         </section>
     </main>
 </div>

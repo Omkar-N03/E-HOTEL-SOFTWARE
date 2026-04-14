@@ -1,9 +1,8 @@
 <?php
 require_once '../config/db.php';
-require_once '../config/sessions.php'; 
+require_once '../config/sessions.php';
 
 if (session_status() === PHP_SESSION_NONE) { session_start(); }
-
 if (!isset($_SESSION['hotel_id'])) {
     header("Location: ../index.php");
     exit();
@@ -15,31 +14,31 @@ try {
     $hotelStmt = $pdo->prepare("SELECT hotel_name, logo_url, currency FROM hotels WHERE id = ?");
     $hotelStmt->execute([$hotel_id]);
     $hotel = $hotelStmt->fetch();
+    
+    if (!$hotel) { die("Hotel not found"); }
+    
     $salesStmt = $pdo->prepare("
         SELECT 
-            DATE(order_time) as date, 
-            SUM(total_price) as daily_total,
-            COUNT(id) as order_count
-        FROM orders 
-        WHERE hotel_id = ? AND status = 'served'
-        AND order_time >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
-        GROUP BY DATE(order_time)
-        ORDER BY DATE(order_time) ASC
+            DATE(o.order_time) as date, 
+            SUM(oi.price * oi.quantity) as daily_total, 
+            COUNT(DISTINCT o.id) as order_count 
+        FROM orders o 
+        JOIN order_items oi ON o.id = oi.order_id 
+        WHERE o.hotel_id = ? AND o.status = 'served' 
+        AND o.order_time >= DATE_SUB(CURDATE(), INTERVAL 7 DAY) 
+        GROUP BY DATE(o.order_time) 
+        ORDER BY DATE(o.order_time) ASC
     ");
     $salesStmt->execute([$hotel_id]);
     $salesData = $salesStmt->fetchAll(PDO::FETCH_ASSOC);
-    $labels = [];
-    $totals = [];
-    $totalEarnings = 0;
-    $totalOrders = 0;
-
+    
+    $labels = []; $totals = []; $totalEarnings = 0; $totalOrders = 0;
     foreach ($salesData as $row) {
         $labels[] = date('M d', strtotime($row['date']));
         $totals[] = (float)$row['daily_total'];
         $totalEarnings += $row['daily_total'];
         $totalOrders += $row['order_count'];
     }
-
 } catch (PDOException $e) {
     die("Error fetching report: " . $e->getMessage());
 }
@@ -49,116 +48,152 @@ try {
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sales Reports | <?php echo htmlspecialchars($hotel['hotel_name']); ?></title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="../assets/css/sidebar.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
     <style>
-        :root { --primary: #2ecc71; --dark: #2c3e50; --light: #f4f7f6; --accent: #3498db; }
-        body { font-family: 'Segoe UI', sans-serif; background: var(--light); margin: 0; display: flex; }
-        
-        /* Sidebar */
-        .sidebar { width: 250px; background: var(--dark); height: 100vh; color: white; padding: 20px; position: fixed; }
-        .sidebar ul { list-style: none; padding: 0; margin-top: 30px; }
-        .sidebar li { margin-bottom: 15px; }
-        .sidebar a { color: #ecf0f1; text-decoration: none; display: flex; align-items: center; padding: 12px; border-radius: 5px; transition: 0.3s; }
-        .sidebar a i { margin-right: 10px; width: 20px; }
-        .sidebar a:hover, .sidebar .active { background: var(--primary); }
-        .logo-circle img { width: 80px; height: 80px; border-radius: 50%; border: 3px solid var(--primary); margin-bottom: 10px; }
+        :root {
+            --primary: #6366f1;
+            --bg-main: #f8fafc;
+            --surface: #ffffff;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --success: #10b981;
+            --border: #e2e8f0;
+            --radius: 16px;
+            --shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.04);
+            --sidebar-width: 280px; /* Matching your reference */
+        }
 
-        /* Main Content */
-        .main-content { margin-left: 270px; padding: 40px; width: calc(100% - 270px); box-sizing: border-box; }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Plus Jakarta Sans', sans-serif; }
         
-        /* Stats Cards */
-        .stats-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px; }
-        .stat-card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); text-align: center; }
-        .stat-card h2 { margin: 0; color: var(--dark); font-size: 1.8rem; }
-        .stat-card p { margin: 5px 0 0; color: #7f8c8d; font-weight: 600; }
-        .stat-card i { font-size: 2rem; color: var(--accent); margin-bottom: 10px; }
+        body { 
+            background-color: var(--bg-main); 
+            display: flex; 
+            min-height: 100vh; 
+        }
 
-        /* Graph Card */
-        .graph-card { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
-        h1 { color: var(--dark); margin-bottom: 30px; }
+        .main-content { 
+            margin-left: var(--sidebar-width); 
+            flex: 1; 
+            padding: 2.5rem;
+            min-width: 0; 
+            animation: fadeIn 0.8s ease;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: var(--surface);
+            padding: 1.5rem;
+            border-radius: var(--radius);
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow);
+            transition: 0.3s;
+        }
+
+        .stat-card:hover { transform: translateY(-4px); }
+
+        .stat-icon { 
+            width: 48px; height: 48px; border-radius: 12px; 
+            display: flex; align-items: center; justify-content: center; 
+            font-size: 1.25rem; margin-bottom: 1rem;
+        }
+        .revenue { background: #dcfce7; color: #166534; }
+        .orders { background: #e0e7ff; color: #3730a3; }
+        .days { background: #fef3c7; color: #92400e; }
+
+        .stat-value { font-size: 1.75rem; font-weight: 700; margin-bottom: 0.25rem; }
+        .stat-label { color: var(--text-muted); font-size: 0.9rem; }
+
+        .chart-card {
+            background: var(--surface);
+            padding: 2rem;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border);
+        }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        @media (max-width: 1024px) {
+            :root { --sidebar-width: 80px; }
+        }
+        @media (max-width: 768px) {
+            body { flex-direction: column; }
+            .main-content { margin-left: 0; padding: 1.5rem; }
+        }
     </style>
 </head>
 <body>
 
-<nav class="sidebar">
-    <div class="hotel-profile" style="text-align:center;">
-        <div class="logo-circle">
-            <img src="../assets/img/logos/<?php echo $hotel['logo_url'] ?: 'default-logo.png'; ?>" alt="Logo">
-        </div>
-        <h3><?php echo htmlspecialchars($hotel['hotel_name']); ?></h3>
-    </div>
-    <ul>
-        <li><a href="dashboard.php"><i class="fa fa-home"></i> Dashboard</a></li>
-        <li class="active"><a href="reports.php"><i class="fa fa-chart-line"></i> Sales Reports</a></li>
-        <li><a href="manage-menu.php"><i class="fa fa-utensils"></i> Manage Menu</a></li>
-        <li><a href="settings.php"><i class="fa fa-cog"></i> Settings</a></li>
-        <li><a href="../logout.php" style="color:#ff7675;"><i class="fa fa-sign-out-alt"></i> Logout</a></li>
-    </ul>
-</nav>
+    <?php include 'sidebar.php'; ?>
 
-<main class="main-content">
-    <h1>Sales Overview (Last 7 Days)</h1>
-
-    <div class="stats-container">
-        <div class="stat-card">
-            <i class="fa fa-wallet"></i>
-            <h2><?php echo $hotel['currency'] . number_format($totalEarnings, 2); ?></h2>
-            <p>Total Revenue</p>
+    <main class="main-content">
+        <div class="page-header">
+            <h1 style="font-size: 1.8rem; font-weight: 700;">Sales Analytics</h1>
+            <p style="color: var(--text-muted); margin-bottom: 2rem;">Overview for <?php echo htmlspecialchars($hotel['hotel_name']); ?></p>
         </div>
-        <div class="stat-card">
-            <i class="fa fa-shopping-bag"></i>
-            <h2><?php echo $totalOrders; ?></h2>
-            <p>Total Orders</p>
-        </div>
-        <div class="stat-card">
-            <i class="fa fa-calendar-day"></i>
-            <h2><?php echo count($salesData); ?></h2>
-            <p>Days Active</p>
-        </div>
-    </div>
 
-    <div class="graph-card">
-        <canvas id="salesChart" height="100"></canvas>
-    </div>
-</main>
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon revenue"><i class="fas fa-indian-rupee-sign"></i></div>
+                <div class="stat-value">₹<?php echo number_format($totalEarnings, 2); ?></div>
+                <div class="stat-label">7-Day Revenue</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon orders"><i class="fas fa-utensils"></i></div>
+                <div class="stat-value"><?php echo $totalOrders; ?></div>
+                <div class="stat-label">Orders Served</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon days"><i class="fas fa-calendar-check"></i></div>
+                <div class="stat-value"><?php echo count($salesData); ?></div>
+                <div class="stat-label">Active Days</div>
+            </div>
+        </div>
 
-<script>
-    const ctx = document.getElementById('salesChart').getContext('2d');
-    const salesChart = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: <?php echo json_encode($labels); ?>,
-            datasets: [{
-                label: 'Revenue (<?php echo $hotel['currency']; ?>)',
-                data: <?php echo json_encode($totals); ?>,
-                borderColor: '#2ecc71',
-                backgroundColor: 'rgba(46, 204, 113, 0.1)',
-                borderWidth: 3,
-                fill: true,
-                tension: 0.4,
-                pointRadius: 5,
-                pointBackgroundColor: '#2ecc71'
-            }]
-        },
-        options: {
-            responsive: true,
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    grid: { color: 'rgba(0,0,0,0.05)' }
-                },
-                x: {
-                    grid: { display: false }
-                }
+        <div class="chart-card">
+            <h3 style="margin-bottom: 1.5rem;"><i class="fas fa-chart-line" style="color: var(--primary);"></i> Revenue Trend</h3>
+            <canvas id="salesChart" height="100"></canvas>
+        </div>
+    </main>
+
+    <script>
+        const ctx = document.getElementById('salesChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: <?php echo json_encode($labels); ?>,
+                datasets: [{
+                    label: 'Daily Revenue',
+                    data: <?php echo json_encode($totals); ?>,
+                    borderColor: '#6366f1',
+                    backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 4
+                }]
             },
-            plugins: {
-                legend: { display: false }
+            options: {
+                responsive: true,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { beginAtZero: true, grid: { color: '#f1f5f9' } },
+                    x: { grid: { display: false } }
+                }
             }
-        }
-    });
-</script>
-
+        });
+    </script>
 </body>
 </html>

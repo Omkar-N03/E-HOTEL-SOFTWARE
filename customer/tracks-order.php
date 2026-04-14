@@ -2,6 +2,7 @@
 require_once '../config/db.php';
 session_start();
 
+// 1. Logic check: Priority to GET parameter, fallback to Session for persistence
 $order_id = isset($_GET['order_id']) ? (int)$_GET['order_id'] : ($_SESSION['last_order_id'] ?? null);
 
 if (!$order_id) {
@@ -10,8 +11,9 @@ if (!$order_id) {
 }
 
 try {
+    // 2. Optimized Query: Grabbing order and hotel details in one join
     $stmt = $pdo->prepare("
-        SELECT o.*, h.hotel_name, h.logo 
+        SELECT o.*, h.hotel_name, h.currency, h.logo_url 
         FROM orders o 
         JOIN hotels h ON o.hotel_id = h.id 
         WHERE o.id = ?
@@ -20,175 +22,267 @@ try {
     $order = $stmt->fetch();
 
     if (!$order) {
-        die("Order not found.");
+        die("<div style='text-align:center; padding:50px; font-family:sans-serif;'><h2>Order Not Found</h2><p>We couldn't locate Order #$order_id.</p></div>");
     }
+
+    // 3. Safety Logic: Handle missing 'created_at' or 'logo_url' gracefully
+    $order_time = isset($order['created_at']) ? date('h:i A', strtotime($order['created_at'])) : "Just now";
+    
+    $logo = (!empty($order['logo_url']) && file_exists("../assets/img/logos/" . $order['logo_url']))
+        ? $order['logo_url']
+        : 'default.png';
+
 } catch (PDOException $e) {
-    die("Error: " . $e->getMessage());
+    // Helpful for debugging during development at PCE
+    die("Database Connection Error: " . $e->getMessage());
 }
 
-$status_map = [
-    'pending'   => 25,
-    'preparing' => 65,
-    'served'    => 100
+// 4. Status Mapping for UI
+$status_steps = [
+    'pending'   => 1,
+    'preparing' => 2,
+    'served'    => 3
 ];
-
-$progress = $status_map[$order['status']] ?? 0;
+$current_step = $status_steps[$order['status']] ?? 1;
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta http-equiv="refresh" content="15">
-<title>Track Order</title>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-<style>
-body {
-    margin: 0;
-    font-family: 'Segoe UI', sans-serif;
-    background: linear-gradient(135deg, #2ecc71, #27ae60);
-    color: #333;
-}
-.header {
-    text-align: center;
-    color: white;
-    padding: 20px;
-}
-.header img {
-    width: 60px;
-    border-radius: 50%;
-}
-.container {
-    max-width: 500px;
-    margin: -30px auto 20px;
-    background: white;
-    border-radius: 20px;
-    padding: 20px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-}
-.progress-bar {
-    background: #eee;
-    border-radius: 20px;
-    height: 10px;
-    overflow: hidden;
-    margin: 20px 0;
-}
-.progress-fill {
-    height: 100%;
-    background: #2ecc71;
-    transition: width 0.5s ease-in-out;
-}
-.steps {
-    display: flex;
-    justify-content: space-between;
-    text-align: center;
-}
-.step {
-    flex: 1;
-    font-size: 12px;
-    color: #aaa;
-}
-.step.active {
-    color: #2ecc71;
-    font-weight: bold;
-}
-.status-box {
-    text-align: center;
-    margin: 20px 0;
-}
-.status-box i {
-    font-size: 40px;
-    margin-bottom: 10px;
-}
-.summary {
-    background: #f9f9f9;
-    padding: 15px;
-    border-radius: 10px;
-}
-.summary-row {
-    display: flex;
-    justify-content: space-between;
-    padding: 5px 0;
-}
-.total {
-    margin-top: 10px;
-    font-weight: bold;
-    display: flex;
-    justify-content: space-between;
-}
-.btn {
-    display: block;
-    text-align: center;
-    padding: 12px;
-    margin-top: 15px;
-    border-radius: 10px;
-    text-decoration: none;
-    font-weight: bold;
-}
-.btn-order {
-    background: #3498db;
-    color: white;
-}
-@media(max-width: 500px) {
-    .container {
-        margin: -20px 10px;
-    }
-}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <?php if($order['status'] !== 'served'): ?>
+    <meta http-equiv="refresh" content="20">
+    <?php endif; ?>
+    
+    <title>Track Order #<?php echo $order_id; ?></title>
+
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        :root {
+            --primary: #10b981;
+            --primary-bg: #ecfdf5;
+            --dark: #0f172a;
+            --slate-400: #94a3b8;
+            --slate-100: #f1f5f9;
+            --bg: #f8fafc;
+            --radius: 28px;
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: var(--bg);
+            color: var(--dark);
+        }
+
+        .top-banner {
+            background: var(--dark);
+            height: 200px;
+            padding: 40px 20px;
+            text-align: center;
+            color: white;
+            border-bottom-left-radius: 45px;
+            border-bottom-right-radius: 45px;
+        }
+
+        .hotel-logo {
+            width: 75px;
+            height: 75px;
+            border-radius: 50%;
+            border: 4px solid rgba(255,255,255,0.15);
+            margin-bottom: 12px;
+            object-fit: cover;
+            background: white;
+        }
+
+        .main-card {
+            max-width: 480px;
+            margin: -70px auto 40px;
+            background: white;
+            border-radius: var(--radius);
+            padding: 35px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.08);
+        }
+
+        /* Vertical Roadmap Styles */
+        .roadmap { margin: 30px 0; }
+        .roadmap-item {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 35px;
+            position: relative;
+        }
+
+        .roadmap-item:not(:last-child)::after {
+            content: '';
+            position: absolute;
+            left: 21px;
+            top: 45px;
+            bottom: -25px;
+            width: 2px;
+            background: var(--slate-100);
+        }
+
+        .roadmap-item.active:not(:last-child)::after { background: var(--primary); }
+
+        .icon-circle {
+            width: 44px;
+            height: 44px;
+            background: var(--slate-100);
+            color: var(--slate-400);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2;
+            font-size: 18px;
+            transition: 0.4s;
+        }
+
+        .active .icon-circle {
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 0 0 8px var(--primary-bg);
+        }
+
+        .step-content h4 { margin: 0; font-size: 1.05rem; font-weight: 700; }
+        .step-content p { margin: 5px 0 0; font-size: 0.85rem; color: var(--slate-400); line-height: 1.4; }
+
+        /* Summary Section */
+        .summary-box {
+            background: var(--slate-100);
+            border-radius: 20px;
+            padding: 20px;
+            margin-top: 25px;
+        }
+
+        .summary-header {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--slate-400);
+            margin-bottom: 15px;
+            display: block;
+            font-weight: 700;
+        }
+
+        .item-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.95rem;
+            margin-bottom: 10px;
+        }
+
+        .total-row {
+            border-top: 2px dashed #e2e8f0;
+            margin-top: 15px;
+            padding-top: 15px;
+            display: flex;
+            justify-content: space-between;
+            font-weight: 800;
+            font-size: 1.2rem;
+            color: var(--dark);
+        }
+
+        .btn-action {
+            display: block;
+            text-align: center;
+            background: var(--dark);
+            color: white;
+            text-decoration: none;
+            padding: 18px;
+            border-radius: 20px;
+            margin-top: 30px;
+            font-weight: 700;
+            transition: 0.3s ease;
+        }
+
+        .btn-action:hover { transform: translateY(-3px); box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
+
+        .pulse { animation: statusPulse 2s infinite; }
+        @keyframes statusPulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.15); opacity: 0.8; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+    </style>
 </head>
 <body>
-<div class="header">
-    <img src="../assets/img/logos/<?php echo $order['logo'] ?: 'default.png'; ?>">
-    <h2><?php echo $order['hotel_name']; ?></h2>
-    <p>Order #<?php echo $order_id; ?> • Table <?php echo $order['table_number']; ?></p>
+
+<div class="top-banner">
+    <img class="hotel-logo" src="../assets/img/logos/<?php echo $logo; ?>" alt="hotel logo">
+    <h2 style="margin: 0;"><?php echo htmlspecialchars($order['hotel_name']); ?></h2>
+    <p style="opacity: 0.8; font-size: 0.9rem; margin-top: 8px;">
+        Order #<?php echo $order_id; ?> • Table <?php echo htmlspecialchars($order['table_number'] ?? 'N/A'); ?>
+    </p>
 </div>
-<div class="container">
-    <div class="progress-bar">
-        <div class="progress-fill" style="width: <?php echo $progress; ?>%;"></div>
+
+<div class="main-card">
+    <div class="roadmap">
+        <div class="roadmap-item <?php echo ($current_step >= 1) ? 'active' : ''; ?>">
+            <div class="icon-circle">
+                <i class="fa fa-receipt <?php echo ($current_step == 1) ? 'pulse' : ''; ?>"></i>
+            </div>
+            <div class="step-content">
+                <h4>Order Received</h4>
+                <p><?php echo ($current_step == 1) ? 'The kitchen is acknowledging your request...' : 'Accepted at ' . $order_time; ?></p>
+            </div>
+        </div>
+
+        <div class="roadmap-item <?php echo ($current_step >= 2) ? 'active' : ''; ?>">
+            <div class="icon-circle">
+                <i class="fa fa-fire-burner <?php echo ($current_step == 2) ? 'pulse' : ''; ?>"></i>
+            </div>
+            <div class="step-content">
+                <h4>Chef is Cooking</h4>
+                <p><?php echo ($current_step == 2) ? 'Your delicious meal is on the stove.' : (($current_step > 2) ? 'Cooking finished.' : 'Waiting for an available chef...'); ?></p>
+            </div>
+        </div>
+
+        <div class="roadmap-item <?php echo ($current_step >= 3) ? 'active' : ''; ?>">
+            <div class="icon-circle">
+                <i class="fa fa-utensils <?php echo ($current_step == 3) ? 'pulse' : ''; ?>"></i>
+            </div>
+            <div class="step-content">
+                <h4>Served & Ready</h4>
+                <p><?php echo ($current_step == 3) ? 'Bon appétit! Enjoy your food. 🍽️' : 'Our team will bring it to your table shortly.'; ?></p>
+            </div>
+        </div>
     </div>
-    <div class="steps">
-        <div class="step <?php echo ($progress >= 25) ? 'active' : ''; ?>">Received</div>
-        <div class="step <?php echo ($progress >= 65) ? 'active' : ''; ?>">Cooking</div>
-        <div class="step <?php echo ($progress >= 100) ? 'active' : ''; ?>">Served</div>
-    </div>
-    <div class="status-box">
-        <?php if($order['status'] == 'pending'): ?>
-            <i class="fa fa-hourglass-half"></i>
-            <h3>Order Received</h3>
-            <p>Waiting for kitchen...</p>
-        <?php elseif($order['status'] == 'preparing'): ?>
-            <i class="fa fa-spinner fa-spin"></i>
-            <h3>Cooking Your Food</h3>
-            <p>Chef is preparing your meal</p>
-        <?php else: ?>
-            <i class="fa fa-check-circle" style="color:green;"></i>
-            <h3>Order Served</h3>
-            <p>Enjoy your meal 🍽️</p>
-        <?php endif; ?>
-    </div>
-    <div class="summary">
-        <h4>Order Summary</h4>
+
+    <div class="summary-box">
+        <span class="summary-header">Order Summary</span>
         <?php
         $items = explode(',', $order['items_summary']);
         foreach($items as $item): ?>
-            <div class="summary-row">
+            <div class="item-row">
                 <span><?php echo htmlspecialchars(trim($item)); ?></span>
             </div>
         <?php endforeach; ?>
-        <div class="total">
-            <span>Total:</span>
-            <span>₹<?php echo number_format($order['total_amount'], 2); ?></span>
+
+        <div class="total-row">
+            <span>Total</span>
+            <span><?php echo $order['currency'] ?? '₹'; ?><?php echo number_format($order['total_amount'], 2); ?></span>
         </div>
     </div>
+
     <?php if($order['status'] == 'served'): ?>
-        <a href="menu.php" class="btn btn-order">Order More 🍽️</a>
+        <a href="menu.php" class="btn-action">
+            Order Something Else <i class="fa fa-arrow-right" style="margin-left: 10px;"></i>
+        </a>
     <?php endif; ?>
 </div>
-<?php if($order['status'] == 'served' && !isset($_SESSION['alerted_'.$order_id])): ?>
+
+<?php 
+// Play notification sound only once when status changes to served
+if($order['status'] == 'served' && !isset($_SESSION['alerted_'.$order_id])): ?>
     <audio autoplay>
         <source src="../assets/audio/notification.mp3" type="audio/mpeg">
     </audio>
     <?php $_SESSION['alerted_'.$order_id] = true; ?>
 <?php endif; ?>
+
 </body>
 </html>

@@ -1,11 +1,8 @@
 <?php
 require_once '../config/db.php';
-session_start();
+require_once '../config/sessions.php';
 
-if (!isset($_SESSION['hotel_id'])) {
-    header("Location: index.php");
-    exit();
-}
+protect_page();
 
 $hotel_id   = $_SESSION['hotel_id'];
 $hotel_name = $_SESSION['hotel_name'] ?? 'Our Restaurant';
@@ -37,74 +34,191 @@ $base_url = $protocol . $host . $project_root . "/customer/menu.php";
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Print QR Codes | <?php echo htmlspecialchars($hotel_name); ?></title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
     <style>
-        body { background: #f4f7f6; font-family: 'Segoe UI', sans-serif; margin: 0; }
-        @media print {
-            .no-print { display: none !important; }
-            body { background: white; }
-            .qr-grid { display: block !important; }
-            .qr-card { 
-                page-break-inside: avoid; 
-                margin: 20px auto; 
-                width: 300px; 
-                border: 1px solid #ddd;
-            }
+        :root {
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --bg-main: #f8fafc;
+            --dark: #0f172a;
+            --slate-500: #64748b;
+            --radius: 20px;
+            --shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.04), 0 4px 6px -2px rgba(0, 0, 0, 0.02);
         }
-        .print-header {
-            background: #2c3e50;
-            padding: 15px 30px;
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: var(--bg-main);
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            color: var(--dark);
+        }
+
+        .no-print-header {
+            background: white;
+            padding: 1rem 2.5rem;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            color: white;
+            box-shadow: var(--shadow);
             position: sticky;
             top: 0;
-            z-index: 100;
+            z-index: 1000;
         }
-        .qr-grid { 
-            display: grid; 
-            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); 
-            gap: 30px; 
-            padding: 40px; 
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
         }
-        .qr-card { 
-            background: white; 
-            border-radius: 20px; 
-            padding: 30px; 
-            text-align: center; 
-            box-shadow: 0 10px 20px rgba(0,0,0,0.08);
+
+        .logo-sidebar {
+            width: 50px;
+            height: 50px;
+            background: var(--primary);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 700;
+            font-size: 1.2rem;
         }
-        .table-no { font-size: 3.5rem; font-weight: bold; color: #2ecc71; margin: 10px 0; }
-        .btn { padding: 10px 20px; border-radius: 8px; border: none; cursor: pointer; text-decoration: none; font-weight: 600; }
-        .btn-print { background: #2ecc71; color: white; }
-        .btn-back { background: rgba(255,255,255,0.2); color: white; }
+
+        .btn {
+            padding: 10px 20px;
+            border-radius: 12px;
+            text-decoration: none;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: 0.3s;
+            border: none;
+            cursor: pointer;
+        }
+
+        .btn-back { background: var(--bg-main); color: var(--slate-500); }
+        .btn-print { background: var(--primary); color: white; box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3); }
+        .btn:hover { transform: translateY(-2px); opacity: 0.9; }
+
+        .qr-container {
+            padding: 2.5rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .qr-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 2rem;
+        }
+
+        .qr-card {
+            background: white;
+            border-radius: var(--radius);
+            padding: 2.5rem;
+            text-align: center;
+            box-shadow: var(--shadow);
+            border: 1px solid rgba(0,0,0,0.05);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .qr-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 6px;
+            background: var(--primary);
+        }
+
+        .hotel-title { font-size: 1.4rem; font-weight: 700; color: var(--dark); margin-bottom: 0.5rem; }
+        .table-label { color: var(--slate-500); text-transform: uppercase; font-size: 0.75rem; letter-spacing: 1px; font-weight: 600; }
+        .table-no { font-size: 4rem; font-weight: 800; color: var(--primary); margin: 0.5rem 0; line-height: 1; }
+
+        .qr-image-wrap {
+            background: #f1f5f9;
+            padding: 20px;
+            border-radius: 16px;
+            display: inline-block;
+            margin: 1.5rem 0;
+        }
+
+        .qr-image-wrap img { display: block; mix-blend-mode: multiply; }
+
+        .scan-text { font-weight: 600; color: var(--dark); margin-bottom: 4px; }
+        .url-text { color: var(--slate-500); font-size: 0.7rem; word-break: break-all; max-width: 200px; margin: 0 auto; }
+
+        @media (max-width: 640px) {
+            .no-print-header { padding: 1rem; }
+            .qr-container { padding: 1rem; }
+            .qr-grid { grid-template-columns: 1fr; }
+        }
+
+        @media print {
+            .no-print { display: none !important; }
+            body { background: white; }
+            .qr-container { padding: 0; max-width: none; }
+            .qr-grid { display: block; }
+            .qr-card {
+                box-shadow: none;
+                border: 2px solid #eee;
+                page-break-inside: avoid;
+                margin-bottom: 30px;
+                width: 100%;
+                max-width: 350px;
+                margin-left: auto;
+                margin-right: auto;
+            }
+        }
     </style>
 </head>
 <body>
-<div class="print-header no-print">
-    <a href="manage-tables.php" class="btn btn-back"><i class="fa fa-arrow-left"></i> Back</a>
-    <div>
-        <span style="margin-right: 15px; opacity: 0.8;"><i class="fa fa-desktop"></i> IP: <?php echo $host; ?></span>
-        <button onclick="window.print()" class="btn btn-print"><i class="fa fa-print"></i> Print All</button>
-    </div>
-</div>
-<div class="qr-grid">
-    <?php foreach ($tables as $t): 
-        $target_url = $base_url . "?hotel_id=" . $hotel_id . "&table_id=" . $t['id'];
-        $qr_url = "https://quickchart.io/qr?size=300&text=" . urlencode($target_url);
-    ?>
-    <div class="qr-card">
-        <h2 style="margin:0; color:#2c3e50;"><?php echo htmlspecialchars($hotel_name); ?></h2>
-        <div style="color: #95a5a6; text-transform: uppercase; font-size: 0.8rem; margin-top: 10px;">Table</div>
-        <div class="table-no"><?php echo htmlspecialchars($t['table_number']); ?></div>
-        <div class="qr-image-wrap">
-            <img src="<?php echo $qr_url; ?>" width="200" alt="QR Code">
+
+<div class="no-print-header no-print">
+    <div class="header-left">
+        <div class="logo-sidebar">
+            <i class="fa fa-utensils"></i>
         </div>
-        <p style="margin-bottom: 5px;"><strong>Scan to View Menu</strong></p>
-        <small style="color: #bdc3c7; font-size: 10px; word-break: break-all;"><?php echo $target_url; ?></small>
+        <a href="manage-tables.php" class="btn btn-back">
+            <i class="fa fa-arrow-left"></i> <span>Back to Tables</span>
+        </a>
     </div>
-    <?php endforeach; ?>
+    <div style="display: flex; align-items: center; gap: 20px;">
+        <span style="color: var(--slate-500); font-size: 0.9rem;" class="no-print">
+            <i class="fa fa-link"></i> <?php echo $host; ?>
+        </span>
+        <button onclick="window.print()" class="btn btn-print">
+            <i class="fa fa-print"></i> Print QR Set
+        </button>
+    </div>
 </div>
+
+<div class="qr-container">
+    <div class="qr-grid">
+        <?php foreach ($tables as $t):
+            $target_url = $base_url . "?hotel_id=" . $hotel_id . "&table_id=" . $t['id'];            // Using a cleaner QR API with better styling
+            $qr_url = "https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=" . urlencode($target_url);
+        ?>
+        <div class="qr-card">
+            <div class="table-label">Table Number</div>
+            <div class="table-no"><?php echo htmlspecialchars($t['table_number']); ?></div>
+
+            <div class="qr-image-wrap">
+                <img src="<?php echo $qr_url; ?>" width="180" height="180" alt="QR Code">
+            </div>
+
+            <h2 class="hotel-title"><?php echo htmlspecialchars($hotel_name); ?></h2>
+            <p class="scan-text">Scan to view menu & order</p>
+            <p class="url-text"><?php echo str_replace($protocol, '', $target_url); ?></p>
+        </div>
+        <?php endforeach; ?>
+    </div>
+</div>
+
 </body>
 </html>
